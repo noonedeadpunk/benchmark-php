@@ -1,36 +1,5 @@
-<?php
-
-/**
- * PHP Script to benchmark PHP and MySQL-Server
- *
- * inspired by / thanks to:
- * - www.php-benchmark-script.com  (Alessandro Torrisi)
- * - www.webdesign-informatik.de
- *
- * @author odan
- * @license MIT
- */
-// -----------------------------------------------------------------------------
-// Setup
-// -----------------------------------------------------------------------------
-set_time_limit(120); // 2 minutes
-
-$options = array();
-
-// Optional: mysql performance test
-//$options['db.host'] = '127.0.0.1';
-//$options['db.user'] = 'root';
-//$options['db.pw'] = '';
-//$options['db.name'] = 'test';
-// -----------------------------------------------------------------------------
-// Main
-// -----------------------------------------------------------------------------
-// check performance
-$benchmarkResult = test_benchmark($options);
-
-// html output
-echo "<!DOCTYPE html>\n<html><head>\n";
-echo "<style>
+<!DOCTYPE html><html><head>
+ <style>
     table {
         color: #333; /* Lighten up font color */
         font-family: Helvetica, Arial, sans-serif; /* Nicer font */
@@ -51,44 +20,139 @@ echo "<style>
     td {
         background: #FAFAFA; /* Lighter grey background */
     }
-    </style>
-    </head>
-    <body>";
+ </style>
+ <script type="text/javascript">
+  function showMe (box) {                                                                                                                                  
+                                                                                                                                                           
+    var chboxs = document.getElementsByName(box);                                                                                                          
+    var vis = "none";                                                                                                                                      
+    for(var i=0;i<chboxs.length;i++) {                                                                                                                     
+        if(chboxs[i].checked){
+         vis = "block";
+            break;
+        }
+    }
+    document.getElementById(box).style.display = vis;
 
-echo array_to_html($benchmarkResult);
 
-echo "\n</body></html>";
-exit;
+  }
+ </script></head>
+<body>
+<?php
+/**
+ * PHP Script to benchmark PHP and MySQL-Server
+ *
+ * inspired by / thanks to:
+ * - www.php-benchmark-script.com  (Alessandro Torrisi)
+ * - www.webdesign-informatik.de
+ *
+ * @author odan
+ * @license MIT
+ */
+if($_POST['collect']) {
+// -----------------------------------------------------------------------------
+// Setup
+// -----------------------------------------------------------------------------
+    set_time_limit(180); // 3 minutes
 
+    $options = array();
+
+if($_POST['mybench']) {
+    $mysql = True;
+    // Optional: mysql performance test
+    $options['db.host'] = $_POST['mysql_host'];
+    $options['db.user'] = $_POST['mysql_user'];
+    $options['db.pw'] = $_POST['mysql_password'];
+    $options['db.name'] = $_POST['mysql_db'];
+}
+else {
+    $mysql = False;
+    echo "MySQL credentials were not provided, so MySQL bench was skipped. <br><br>";
+}
+// -----------------------------------------------------------------------------
+// Main
+// -----------------------------------------------------------------------------
+// check performance
+    // Running benchmark
+    $benchmarkResult = test_benchmark($options);
+    // Reading from file if comparison is enabled
+    if($_POST['compare']) { $fileReadResult = file_get_contents("benchmark_results.txt"); }
+    // saving to file, if selected
+    if($_POST['saveFile']) { file_put_contents($_POST['save-file'], json_encode($benchmarkResult)); }
+    echo "You may download file with results via the <a href='benchmark_results.txt'>link</a><br>";
+    echo "<table style='border: 1px solid black;'><tr><td>Results</td>";
+    if($_POST['compare']) { echo "<td>File</td>"; }
+    echo "</tr><tr><td>";
+    echo array_to_html($benchmarkResult);
+    if($_POST['compare']) { echo "</td><td>", array_to_html(json_decode($fileReadResult, true)); }
+    echo "</td></tr></table></body></html>";
+    exit;
+}
+else {
+?>
+
+<form method="POST" action="">
+  Save results to file: <input type="checkbox" onclick="showMe('saveFile')" name="saveFile" checked>
+  <div id="saveFile">
+   Filename: <input type="text" name="save-file" value="benchmark_results.txt">
+  </div>
+<br>
+  Compare with existing file: <input type="checkbox" onclick="showMe('compare')" name="compare">
+  <div id="compare" style="display:none">
+   Filename: <input type="text" name="compare-file" value="benchmark_results.txt">
+  </div>
+<br>
+MySQL benchmark: <input type="checkbox" onclick="showMe('mybench')" name="mybench">
+<div id="mybench" style="display:none">
+  MySQL username:
+  <input type="text" name="mysql_user"><br>
+  MySQL database:
+  <input type="text" name="mysql_db"><br>
+  MySQL password:
+  <input type="password" name="mysql_password"><br>
+  MySQL host:
+  <input type="text" name="mysql_host" value="127.0.0.1"><br>
+</div>
+<br><br><input type="submit" value="Submit" name="collect">
+</form>
+
+<?php
+}
 // -----------------------------------------------------------------------------
 // Benchmark functions
 // -----------------------------------------------------------------------------
 
 function test_benchmark($settings)
 {
+    global $mysql;
     $timeStart = microtime(true);
 
     $result = array();
-    $result['version'] = '1.1';
+    // $result['version'] = '1.2';
     $result['sysinfo']['time'] = date("Y-m-d H:i:s");
     $result['sysinfo']['php_version'] = PHP_VERSION;
+    $result['sysinfo']['platform'] = PHP_OS;
+    $result['sysinfo']['post_max_size'] = ini_get('post_max_size');
+    $result['sysinfo']['memory_limit'] = ini_get('memory_limit');
+
     $result['sysinfo']['platform'] = PHP_OS;
     $result['sysinfo']['server_name'] = $_SERVER['SERVER_NAME'];
     $result['sysinfo']['server_addr'] = $_SERVER['SERVER_ADDR'];
 
-    test_math($result);
-    test_string($result);
-    test_loops($result);
-    test_ifelse($result);
-    if (isset($settings['db.host'])) {
-        test_mysql($result, $settings);
+    test_math($result['php']);
+    test_string($result['php']);
+    test_loops($result['php']);
+    test_ifelse($result['php']);
+    if ($mysql == True) {
+        test_mysql($result['mysql'], $settings);
     }
 
     $result['total'] = timer_diff($timeStart);
     return $result;
 }
 
-function test_math(&$result, $count = 99999)
+
+function test_math(&$result, $count = 999999)
 {
     $timeStart = microtime(true);
 
@@ -98,10 +162,10 @@ function test_math(&$result, $count = 99999)
             call_user_func_array($function, array($i));
         }
     }
-    $result['benchmark']['math'] = timer_diff($timeStart);
+    $result['math'] = timer_diff($timeStart);
 }
 
-function test_string(&$result, $count = 99999)
+function test_string(&$result, $count = 999999)
 {
     $timeStart = microtime(true);
     $stringFunctions = array("addslashes", "chunk_split", "metaphone", "strip_tags", "md5", "sha1", "strtoupper", "strtolower", "strrev", "strlen", "soundex", "ord");
@@ -112,10 +176,10 @@ function test_string(&$result, $count = 99999)
             call_user_func_array($function, array($string));
         }
     }
-    $result['benchmark']['string'] = timer_diff($timeStart);
+    $result['string'] = timer_diff($timeStart);
 }
 
-function test_loops(&$result, $count = 999999)
+function test_loops(&$result, $count = 99999999)
 {
     $timeStart = microtime(true);
     for ($i = 0; $i < $count; ++$i) {
@@ -125,10 +189,10 @@ function test_loops(&$result, $count = 999999)
     while ($i < $count) {
         ++$i;
     }
-    $result['benchmark']['loops'] = timer_diff($timeStart);
+    $result['loops'] = timer_diff($timeStart);
 }
 
-function test_ifelse(&$result, $count = 999999)
+function test_ifelse(&$result, $count = 99999999)
 {
     $timeStart = microtime(true);
     for ($i = 0; $i < $count; $i++) {
@@ -140,7 +204,7 @@ function test_ifelse(&$result, $count = 999999)
 
         }
     }
-    $result['benchmark']['ifelse'] = timer_diff($timeStart);
+    $result['ifelse'] = timer_diff($timeStart);
 }
 
 function test_mysql(&$result, $settings)
@@ -148,25 +212,25 @@ function test_mysql(&$result, $settings)
     $timeStart = microtime(true);
 
     $link = mysqli_connect($settings['db.host'], $settings['db.user'], $settings['db.pw']);
-    $result['benchmark']['mysql']['connect'] = timer_diff($timeStart);
+    $result['mysql_connect'] = timer_diff($timeStart);
 
     //$arr_return['sysinfo']['mysql_version'] = '';
 
     mysqli_select_db($link, $settings['db.name']);
-    $result['benchmark']['mysql']['select_db'] = timer_diff($timeStart);
+    $result['select_db'] = timer_diff($timeStart);
 
     $dbResult = mysqli_query($link, 'SELECT VERSION() as version;');
     $arr_row = mysqli_fetch_array($dbResult);
-    $result['sysinfo']['mysql_version'] = $arr_row['version'];
-    $result['benchmark']['mysql']['query_version'] = timer_diff($timeStart);
+    //$result['sysinfo']['mysql_version'] = $arr_row['version'];
+    $result['query_version'] = timer_diff($timeStart);
 
     $query = "SELECT BENCHMARK(1000000,ENCODE('hello',RAND()));";
     $dbResult = mysqli_query($link, $query);
-    $result['benchmark']['mysql']['query_benchmark'] = timer_diff($timeStart);
+    $result['query_benchmark'] = timer_diff($timeStart);
 
     mysqli_close($link);
 
-    $result['benchmark']['mysql']['total'] = timer_diff($timeStart);
+    $result['total_mysql'] = timer_diff($timeStart);
     return $result;
 }
 
@@ -174,6 +238,7 @@ function timer_diff($timeStart)
 {
     return number_format(microtime(true) - $timeStart, 3);
 }
+
 
 function array_to_html($array)
 {

@@ -1,5 +1,9 @@
+<?php
+// Start the buffering //
+    if($_POST['collect']) { ob_start(); }
+?>
 <!DOCTYPE html><html><head>
- <style>
+<style>
     table {
         color: #333; /* Lighten up font color */
         font-family: Helvetica, Arial, sans-serif; /* Nicer font */
@@ -15,18 +19,14 @@
     th {
         background: #F3F3F3; /* Light grey background */
         font-weight: bold; /* Make sure they're bold */
-    }
+    }                                                                                                                                                   
+  </style>                                                                                                                                                 
+  <script type="text/javascript">                                                                                                                          
+function showMe (box) {                                                                                                                                  
 
-    td {
-        background: #FAFAFA; /* Lighter grey background */
-    }
- </style>
- <script type="text/javascript">
-  function showMe (box) {                                                                                                                                  
-                                                                                                                                                           
-    var chboxs = document.getElementsByName(box);                                                                                                          
-    var vis = "none";                                                                                                                                      
-    for(var i=0;i<chboxs.length;i++) {                                                                                                                     
+    var chboxs = document.getElementsByName(box);
+    var vis = "none";
+    for(var i=0;i<chboxs.length;i++) {
         if(chboxs[i].checked){
          vis = "block";
             break;
@@ -36,7 +36,61 @@
 
 
   }
- </script></head>
+
+function CompareTables(table1,table2)
+   {
+        var instHasChange = false;
+        for(var i=0; i < table1.rows.length; i++)
+        {
+            var changes =RowExists(table2,table1.rows[i].cells[0].innerHTML,table1.rows[i].cells[1].innerHTML);
+            if(!changes[0])
+            {
+                 table1.rows[i].style.backgroundColor = "orange";
+                 instHasChange = true;
+            }
+            else if(changes[1])
+            {
+                table1.rows[i].style.backgroundColor = "green";
+                instHasChange = true;
+            }
+            
+        }
+        for(var i=0; i < table2.rows.length; i++)
+        {
+            var changes = RowExists(table1,table2.rows[i].cells[0].innerHTML,table2.rows[i].cells[1].innerHTML);
+            if(!changes[0])
+            {
+                 table2.rows[i].style.backgroundColor = "green";
+                 instHasChange = true;
+            }
+            else if(changes[1])
+            {
+                table2.rows[i].style.backgroundColor = "orange";
+                instHasChange = true;
+            }
+        }
+        return instHasChange;
+   }
+function RowExists(table,columnName,columnValue)
+   {
+        var hasColumnOrChange = new Array(2);
+        hasColumnOrChange[0] = false;
+        hasColumnOrChange[1] = false;
+        for(var i=0; i < table.rows.length; i++)
+        {
+            if(table.rows[i].cells[0].innerHTML == columnName)
+            {
+                hasColumnOrChange[0] = true;
+                if(table.rows[i].cells[1].innerHTML > columnValue)
+                hasColumnOrChange[1] = true;
+            }
+           
+        }
+        return hasColumnOrChange;
+   }
+
+</script>
+</head>
 <body>
 <?php
 /**
@@ -53,40 +107,85 @@ if($_POST['collect']) {
 // -----------------------------------------------------------------------------
 // Setup
 // -----------------------------------------------------------------------------
-    set_time_limit(180); // 3 minutes
+
+    set_time_limit(320); // 6 minutes
 
     $options = array();
 
-if($_POST['mybench']) {
-    $mysql = True;
-    // Optional: mysql performance test
-    $options['db.host'] = $_POST['mysql_host'];
-    $options['db.user'] = $_POST['mysql_user'];
-    $options['db.pw'] = $_POST['mysql_password'];
-    $options['db.name'] = $_POST['mysql_db'];
-}
-else {
-    $mysql = False;
-    echo "MySQL credentials were not provided, so MySQL bench was skipped. <br><br>";
-}
-// -----------------------------------------------------------------------------
-// Main
-// -----------------------------------------------------------------------------
-// check performance
-    // Running benchmark
-    $benchmarkResult = test_benchmark($options);
-    // Reading from file if comparison is enabled
-    if($_POST['compare']) { $fileReadResult = file_get_contents("benchmark_results.txt"); }
-    // saving to file, if selected
-    if($_POST['saveFile']) { file_put_contents($_POST['save-file'], json_encode($benchmarkResult)); }
-    echo "You may download file with results via the <a href='benchmark_results.txt'>link</a><br>";
-    echo "<table style='border: 1px solid black;'><tr><td>Results</td>";
-    if($_POST['compare']) { echo "<td>File</td>"; }
-    echo "</tr><tr><td>";
-    echo array_to_html($benchmarkResult);
-    if($_POST['compare']) { echo "</td><td>", array_to_html(json_decode($fileReadResult, true)); }
-    echo "</td></tr></table></body></html>";
-    exit;
+    if($_POST['mybench']) {
+        $mysql = True;
+        // Optional: mysql performance test
+        $options['db.host'] = $_POST['mysql_host'];
+        $options['db.user'] = $_POST['mysql_user'];
+        $options['db.pw'] = $_POST['mysql_password'];
+        $options['db.name'] = $_POST['mysql_db'];
+    }
+    else {
+        $mysql = False;
+        echo "MySQL credentials were not provided, so MySQL bench was skipped. <br><br>";
+    }
+    // -----------------------------------------------------------------------------
+    // Main
+    // -----------------------------------------------------------------------------
+    // check performance
+        // Running benchmark
+        $benchmarkResult = test_benchmark($options);
+        // Reading from file if comparison is enabled
+        if($_POST['compare']) { $fileReadResult = file_get_contents($_POST['compare-file']); }
+        // saving to file, if selected
+        if($_POST['saveFile']) { 
+            $file_path = explode('/', $_POST['save-file']);
+            if(count($file_path) > 1) {
+                mkdir(implode("/", array_slice($file_path, 0, -1)));
+            }
+            if (file_exists($_POST['save-file'])) {
+                $file_array = explode(".", $_POST['save-file']);
+                array_splice($file_array, -1, 0, date('dmY_his', time()));
+                $file = implode('.', $file_array);
+            }
+            else {
+                $file = $_POST['save-file'];
+            }
+            file_put_contents($file, json_encode($benchmarkResult));
+        }
+        echo "You may download file with results via the links: <a href='".$file."'>JSON</a>, <a href='".$file.".html'>HTML</a><br>";
+        echo "<table style='border: 1px solid black;'><tr><td><center>Current</center></td>";
+        if($_POST['compare']) { echo "<td><center>Comparison</center></td>"; }
+        echo "</tr><tr><td>";
+        echo array_to_html($benchmarkResult, "current");
+        if($_POST['compare']) { echo "</td><td>", array_to_html(json_decode($fileReadResult, true), "file"); }
+        echo "</td></tr></table>";
+        if($_POST['compare']) {
+        if ($mysql == True) { 
+            echo "<script>
+                window.onload = CompareTables(document.getElementById('currentmysql'), document.getElementById('filemysql'));
+                </script>"; 
+            }
+        echo "<script>
+        window.onload = CompareTables(document.getElementById('currentphp'), document.getElementById('filephp'));
+        window.onload = CompareTables(document.getElementById('currentdisk'), document.getElementById('filedisk'));
+        window.onload = function() {
+            var currenttotal = document.getElementById('currenttotal');
+            var filetotal = document.getElementById('filetotal');
+            if(currenttotal.innerText < filetotal.innerText)
+            {
+                currenttotal.style.backgroundColor = 'green';
+                var better_pct = parseFloat((filetotal.innerText - currenttotal.innerText) / (currenttotal.innerText/100)).toFixed(2);
+                currenttotal.innerText = currenttotal.innerText + ' (' + better_pct + '% better)'
+            }
+            else if(currenttotal.innerText > filetotal.innerText)
+            {
+                filetotal.style.backgroundColor = 'orange';
+                var better_pct = parseFloat((currenttotal.innerText - filetotal.innerText) / (filetotal.innerText/100)).toFixed(2);
+                filetotal.innerText = filetotal.innerText + ' (' + better_pct + '% worse)'
+            }
+        };
+        </script>";
+        }
+        echo "</body></html>";
+        file_put_contents($file.'.html', ob_get_contents());
+        ob_end_flush();
+        exit;
 }
 else {
 ?>
@@ -94,12 +193,12 @@ else {
 <form method="POST" action="">
   Save results to file: <input type="checkbox" onclick="showMe('saveFile')" name="saveFile" checked>
   <div id="saveFile">
-   Filename: <input type="text" name="save-file" value="benchmark_results.txt">
+   Filename: <input type="text" name="save-file" value="benchmark/benchmark_results.txt">
   </div>
 <br>
   Compare with existing file: <input type="checkbox" onclick="showMe('compare')" name="compare">
   <div id="compare" style="display:none">
-   Filename: <input type="text" name="compare-file" value="benchmark_results.txt">
+   Filename: <input type="text" name="compare-file" value="benchmark/benchmark_results.txt">
   </div>
 <br>
 MySQL benchmark: <input type="checkbox" onclick="showMe('mybench')" name="mybench">
@@ -143,6 +242,8 @@ function test_benchmark($settings)
     test_string($result['php']);
     test_loops($result['php']);
     test_ifelse($result['php']);
+    test_disk($result['disk']);
+
     if ($mysql == True) {
         test_mysql($result['mysql'], $settings);
     }
@@ -207,6 +308,47 @@ function test_ifelse(&$result, $count = 99999999)
     $result['ifelse'] = timer_diff($timeStart);
 }
 
+function test_disk(&$result, $filesize = 104857600) {
+    $filename = "randfile";
+    $src_write = fopen('/dev/urandom', 'r');
+    $dest_write = fopen($filename, 'w');
+    $writeStart = microtime(true);
+    $write = stream_copy_to_stream($src_write, $dest_write, $filesize);
+    
+    /*
+    if ($h = fopen($filename, 'w')) {
+        if ($filesize > 1024) {
+            for ($i = 0; $i < floor($filesize / 1024); $i++) {
+                fwrite($h, bin2hex(openssl_random_pseudo_bytes(511)) . PHP_EOL);
+            }
+            $filesize = $filesize - (1024 * $i);
+        }
+        $mod = $filesize % 2;
+        fwrite($h, bin2hex(openssl_random_pseudo_bytes(($filesize - $mod) / 2)));
+        if ($mod) {
+            fwrite($h, substr(uniqid(), 0, 1));
+        }
+        fclose($h);
+        umask(0000);
+        chmod($filename, 0644);
+    }
+    
+    */
+    $result['write'] = timer_diff($writeStart);
+    fclose($src_write);
+    fclose($dest_write);
+
+    $src_read = fopen($filename, 'r');
+    $dest_read = fopen('/dev/null', 'w');
+    $readStart = microtime(true);
+    $read = stream_copy_to_stream($src_read, $dest_read);
+    $result['read'] = timer_diff($readStart);
+    fclose($src_read);
+    fclose($dest_read);
+    unlink($filename);
+
+}
+
 function test_mysql(&$result, $settings)
 {
     $timeStart = microtime(true);
@@ -240,18 +382,22 @@ function timer_diff($timeStart)
 }
 
 
-function array_to_html($array)
+function array_to_html($array, $step, $type='')
 {
     $result = '';
     if (is_array($array)) {
-        $result .= '<table>';
+        if ($type) { $result .= '<table id='.$step.$type.'>'; }
+        else { $result .= '<table>'; }
         foreach ($array as $k => $v) {
-            $result .= "\n<tr><td>";
-            $result .= '<strong>' . htmlentities($k) . "</strong></td><td>";
-            $result .= array_to_html($v);
+            $result .= "<tr><td>";
+            $result .= '<strong>' . htmlentities($k) . "</strong></td>";
+            if ($k == "total") { $result .= "<td id=".$step.$k.">"; }
+            else { $result .= "<td>"; }
+            if ($k == "php" || $k == "disk" || $k =="mysql") { $result .= array_to_html($v, $step, $k); }
+            else { $result .= array_to_html($v, $step); }
             $result .= "</td></tr>";
         }
-        $result .= "\n</table>";
+        $result .= "</table>";
     } else {
         $result = htmlentities($array);
     }

@@ -42,7 +42,7 @@ function CompareTables(table1,table2)
         var instHasChange = false;
         for(var i=0; i < table1.rows.length; i++)
         {
-            var changes =RowExists(table2,table1.rows[i].cells[0].innerHTML,table1.rows[i].cells[1].innerHTML);
+            var changes =RowExists(table2,table1.rows[i].cells[0].innerHTML,parseFloat(table1.rows[i].cells[1].innerHTML));
             if(!changes[0])
             {
                  table1.rows[i].style.backgroundColor = "orange";
@@ -57,7 +57,7 @@ function CompareTables(table1,table2)
         }
         for(var i=0; i < table2.rows.length; i++)
         {
-            var changes = RowExists(table1,table2.rows[i].cells[0].innerHTML,table2.rows[i].cells[1].innerHTML);
+            var changes = RowExists(table1,table2.rows[i].cells[0].innerHTML,parseFloat(table2.rows[i].cells[1].innerHTML));
             if(!changes[0])
             {
                  table2.rows[i].style.backgroundColor = "green";
@@ -167,17 +167,19 @@ if($_POST['collect']) {
         window.onload = function() {
             var currenttotal = document.getElementById('currenttotal');
             var filetotal = document.getElementById('filetotal');
-            if(currenttotal.innerText < filetotal.innerText)
+            var currenttotal_int = parseFloat(currenttotal.innerText);
+            var filetotal_int = parseFloat(filetotal.innerText);
+            if(currenttotal_int < filetotal_int)
             {
                 currenttotal.style.backgroundColor = 'green';
-                var better_pct = parseFloat((filetotal.innerText - currenttotal.innerText) / (currenttotal.innerText/100)).toFixed(2);
-                currenttotal.innerText = currenttotal.innerText + ' (' + better_pct + '% better)'
+                var better_pct = parseFloat((filetotal_int - currenttotal_int) / (currenttotal_int/100)).toFixed(2);
+                currenttotal.innerText = currenttotal_int + ' (' + better_pct + '% better)'
             }
-            else if(currenttotal.innerText > filetotal.innerText)
+            else if(currenttotal_int > filetotal_int)
             {
                 filetotal.style.backgroundColor = 'orange';
-                var better_pct = parseFloat((currenttotal.innerText - filetotal.innerText) / (filetotal.innerText/100)).toFixed(2);
-                filetotal.innerText = filetotal.innerText + ' (' + better_pct + '% worse)'
+                var better_pct = parseFloat((currenttotal_int - filetotal_int) / (filetotal_int/100)).toFixed(2);
+                filetotal.innerText = filetotal_int + ' (' + better_pct + '% worse)'
             }
         };
         </script>";
